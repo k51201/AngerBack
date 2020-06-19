@@ -1,11 +1,11 @@
-name := "WebApp1"
+name := "AngerBack"
 version := "0.1"
-scalaVersion := "2.12.10"
+scalaVersion := "2.13.2"
 
-val http4sVersion = "0.20.15"
-val circeVersion = "0.12.3"
+val http4sVersion = "0.21.4"
+val circeVersion = "0.13.0"
 val logbackVersion = "1.2.3"
-val catsVersion = "2.0.0"
+val catsVersion = "2.1.3"
 
 libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-dsl" % http4sVersion,
