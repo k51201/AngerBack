@@ -1,23 +1,20 @@
 package ru.vampa.angerback
 
 import cats.effect._
-import org.http4s.dsl.io._
+import org.http4s.HttpApp
 import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.syntax.kleisli._
-import org.http4s.{HttpApp, HttpRoutes}
+import ru.vampa.angerback.db.UserRepository
 
 import scala.concurrent.ExecutionContext.global
 
 object WebServer extends IOApp {
-  val apiRouter: HttpRoutes[IO] =
-    HttpRoutes.of[IO] {
-      case GET -> Root / "hello" / name =>
-        Ok(s"Hello, $name.")
-    }
+  val repo = new UserRepository[IO]
+  val service: Service[IO] = new Service[IO](repo)
 
   val httpApp: HttpApp[IO] = Router(
-    "/api" -> apiRouter
+    "/api" -> new ApiRouter[IO](service).routes
   ).orNotFound
 
   override def run(args: List[String]): IO[ExitCode] = {

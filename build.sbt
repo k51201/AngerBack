@@ -21,5 +21,11 @@ libraryDependencies ++= Seq(
 
   "ch.qos.logback" % "logback-classic" % logbackVersion,
 
+  "org.mongodb.scala" %% "mongo-scala-driver" % "4.0.4",
+  "com.github.t3hnar" %% "scala-bcrypt" % "4.1",
+
   "org.scalatest" %% "scalatest" % "3.1.0" % Test
 )
+
+addCompilerPlugin("org.typelevel" % "kind-projector_2.13.2" % "0.11.0")
+addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
