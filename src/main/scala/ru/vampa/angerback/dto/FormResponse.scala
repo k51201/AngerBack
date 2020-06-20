@@ -1,16 +1,20 @@
 package ru.vampa.angerback.dto
 
-import io.circe.Encoder
-import io.circe.generic.semiauto.deriveEncoder
+import io.circe.syntax._
+import io.circe.generic.auto._
+import io.circe.{Encoder, JsonObject}
 
-case class FormResponse(
-  Success: Boolean,
-  error: Option[String]
-)
+sealed trait FormResponse
 
 object FormResponse {
-  implicit val jsonEnc: Encoder[FormResponse] = deriveEncoder[FormResponse]
+  case object Success extends FormResponse
+  case class Error(error: String) extends FormResponse
 
-  def apply(): FormResponse = new FormResponse(true, None)
-  def apply(error: String): FormResponse = new FormResponse(false, Some(error))
+  implicit val jsonEnc: Encoder[FormResponse] = Encoder.instance {
+    case obj: Error => obj.asJsonObject.add("Success", false.asJson).asJson
+    case Success    => JsonObject.empty.add("Success", true.asJson).asJson
+  }
+
+  def success: FormResponse = Success
+  def error(msg: String): FormResponse = Error(msg)
 }

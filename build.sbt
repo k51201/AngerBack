@@ -23,6 +23,7 @@ libraryDependencies ++= Seq(
 
   "org.mongodb.scala" %% "mongo-scala-driver" % "4.0.4",
   "com.github.t3hnar" %% "scala-bcrypt" % "4.1",
+  "org.reactormonk" %% "cryptobits" % "1.3",
 
   "org.scalatest" %% "scalatest" % "3.1.0" % Test
 )

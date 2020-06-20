@@ -1,8 +1,6 @@
 package ru.vampa.angerback.dto
 
-case class RegRequest(
-  username: String,
+case class AuthRequest(
   email: String,
   password: String,
-  repeatpassword: String
 )
