@@ -33,12 +33,20 @@ class ApiRouter[F[_]: Async](userService: UserService[F]) extends Http4sDsl[F] {
 
   val routes: HttpRoutes[F] =
     HttpRoutes.of[F] {
-      case req @ POST -> Root / "auth" => auth(req)
-      case req @ POST -> Root / "reg"  => register(req)
-      case GET -> Root / "logout"      => Ok().map(_.removeCookie("sid"))
+      case req @ POST -> Root / "auth"        => auth(req)
+      case req @ POST -> Root / "reg"         => register(req)
+      case GET -> Root / "logout"             => Ok().map(_.removeCookie("sid"))
+      case GET -> Root / "users" :? search(s) => searchUsers(s)
     } <+> authMiddle(AuthedRoutes.of[User, F] {
       case GET -> Root / "currentuser" as user => Ok(user)
     })
+
+  private def searchUsers(query: Option[String]): F[Response[F]] = {
+    userService.searchUsers(query).flatMap {
+      case Right(users) => Ok(users)
+      case Left(err)    => InternalServerError(err)
+    }
+  }
 
   private def auth(req: Request[F]): F[Response[F]] = {
     for {
@@ -63,4 +71,6 @@ class ApiRouter[F[_]: Async](userService: UserService[F]) extends Http4sDsl[F] {
       }
     } yield res
   }
+
+  object search extends OptionalQueryParamDecoderMatcher[String]("search")
 }

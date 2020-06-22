@@ -27,4 +27,13 @@ class UserRepository[F[_] : Async](db: MongoDatabase) {
     val query = users.find(equal("_id", new ObjectId(id))).first()
     IO.fromFuture(IO(query.headOption()))
   }
+
+  def findUsers(): F[Seq[UserEntity]] = Async[F].liftIO {
+    IO.fromFuture(IO(users.find().toFuture))
+  }
+
+  def findUsers(q: String): F[Seq[UserEntity]] = Async[F].liftIO {
+    val query = users.find(regex("username", s"(?i)$q".r))
+    IO.fromFuture(IO(query.toFuture))
+  }
 }

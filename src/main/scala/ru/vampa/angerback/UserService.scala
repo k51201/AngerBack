@@ -41,6 +41,14 @@ class UserService[F[_] : Async](repo: UserRepository[F]) {
   }
 
   def getUser(id: String): F[Either[String, User]] = {
-    repo.findUserById(id).map(_.toRight("User not found").map(e => User(e._id.toString, e.username, e.email)))
+    repo.findUserById(id).map(_.toRight("User not found").map(User.apply))
+  }
+
+  def searchUsers(query: Option[String]): F[Either[String, Seq[User]]] = {
+    query.fold(repo.findUsers())(repo.findUsers)
+      .map(_.map(User.apply).asRight[String])
+      .recover {
+        case e => Either.left[String, Seq[User]](e.getMessage)
+      }
   }
 }

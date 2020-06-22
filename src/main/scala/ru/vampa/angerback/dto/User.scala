@@ -1,14 +1,13 @@
 package ru.vampa.angerback.dto
 
-import io.circe.Encoder
-import io.circe.generic.semiauto.deriveEncoder
+import ru.vampa.angerback.db.models.UserEntity
 
 case class User(
-  id: String,
-  username: String,
-  email: String
+    id: String,
+    username: String,
+    email: String
 )
 
 object User {
-  implicit val jsonEnc: Encoder[User] = deriveEncoder[User]
+  def apply(e: UserEntity): User = User(e._id.toString, e.username, e.email)
 }
