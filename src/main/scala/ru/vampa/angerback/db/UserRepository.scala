@@ -14,26 +14,26 @@ class UserRepository[F[_] : Async](db: MongoDatabase) {
   implicit private val csIO: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   private val users: MongoCollection[UserEntity] = db.getCollection("users")
 
-  def findUser(email: String): F[Option[UserEntity]] = Async[F].liftIO {
+  def findOne(email: String): F[Option[UserEntity]] = Async[F].liftIO {
     val query = users.find(equal("email", email)).first()
     IO.fromFuture(IO(query.headOption()))
   }
 
-  def createUser(user: UserEntity): F[UserId] = Async[F].liftIO {
+  def create(user: UserEntity): F[UserId] = Async[F].liftIO {
     val query = users.insertOne(user)
     IO.fromFuture(IO(query.toFuture)).map(_.getInsertedId.asObjectId.getValue.toString)
   }
 
-  def findUserById(id: UserId): F[Option[UserEntity]] = Async[F].liftIO {
+  def findById(id: UserId): F[Option[UserEntity]] = Async[F].liftIO {
     val query = users.find(equal("_id", new ObjectId(id))).first()
     IO.fromFuture(IO(query.headOption()))
   }
 
-  def findUsers(): F[Seq[UserEntity]] = Async[F].liftIO {
+  def findAll(): F[Seq[UserEntity]] = Async[F].liftIO {
     IO.fromFuture(IO(users.find().toFuture))
   }
 
-  def findUsers(q: String): F[Seq[UserEntity]] = Async[F].liftIO {
+  def find(q: String): F[Seq[UserEntity]] = Async[F].liftIO {
     val query = users.find(regex("username", s"(?i)$q".r))
     IO.fromFuture(IO(query.toFuture))
   }

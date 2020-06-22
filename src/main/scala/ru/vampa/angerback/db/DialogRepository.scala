@@ -19,7 +19,7 @@ class DialogRepository[F[_]: Async](db: MongoDatabase) {
   private val dialogs: MongoCollection[DialogEntity] =
     db.getCollection("dialogs")
 
-  def upsertDialog(fromUser: UserId, toUser: UserId): F[DialogId] = {
+  def upsert(fromUser: UserId, toUser: UserId): F[DialogId] = {
     val filterBson = or(
       and(
         equal("fromUser", new ObjectId(fromUser)),

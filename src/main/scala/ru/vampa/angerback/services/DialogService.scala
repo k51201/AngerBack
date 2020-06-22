@@ -9,7 +9,7 @@ class DialogService[F[_]: Sync](dialogRepo: DialogRepository[F]) {
   type UserId = String
 
   def createDialog(fromUser: UserId, toUser: UserId): F[Either[String, DialogId]] = {
-    dialogRepo.upsertDialog(fromUser, toUser)
+    dialogRepo.upsert(fromUser, toUser)
       .map(_.asRight[String])
       .recover {
         case e => Either.left[String, DialogId](e.getMessage)
