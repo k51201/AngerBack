@@ -2,31 +2,48 @@ package ru.vampa.angerback
 
 import java.time.Clock
 
+import cats.data.{Kleisli, OptionT}
 import cats.effect.Async
 import cats.implicits._
 import io.circe.generic.auto._
+import org.http4s._
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.dsl.Http4sDsl
-import org.http4s.{HttpRoutes, Request, Response, ResponseCookie}
+import org.http4s.server.AuthMiddleware
 import org.reactormonk.{CryptoBits, PrivateKey}
-import ru.vampa.angerback.dto.{AuthRequest, FormResponse, RegRequest}
+import ru.vampa.angerback.dto.{AuthRequest, FormResponse, RegRequest, User}
 
-class ApiRouter[F[_]: Async](service: Service[F]) extends Http4sDsl[F] {
-  val key: PrivateKey = PrivateKey(scala.io.Codec.toUTF8(scala.util.Random.alphanumeric.take(20).mkString("")))
+class ApiRouter[F[_]: Async](userService: UserService[F]) extends Http4sDsl[F] {
+  val key: PrivateKey = PrivateKey(scala.io.Codec.toUTF8("rgghnfghndzs"))
   val crypto: CryptoBits = CryptoBits(key)
   val clock: Clock = java.time.Clock.systemUTC
 
+  val authUser: Kleisli[F, Request[F], Either[String, User]] =
+    Kleisli { req =>
+      val message = for {
+        header <- headers.Cookie.from(req.headers).toRight("Cookie parsing error")
+        cookie <- header.values.toList.find(_.name == "sid").toRight("Couldn't find the session id")
+        message <- crypto.validateSignedToken(cookie.content).toRight("Cookie invalid")
+      } yield message
+      message.flatTraverse(userService.getUser)
+    }
+  val onFailure: AuthedRoutes[String, F] = Kleisli(req => OptionT.liftF(Forbidden(req.context)))
+  val authMiddle: AuthMiddleware[F, User] = AuthMiddleware(authUser, onFailure)
+
   val routes: HttpRoutes[F] =
     HttpRoutes.of[F] {
-      case req @ POST -> Root / "auth" => authRoute(req)
-      case req @ POST -> Root / "reg"  => regRoute(req)
-    }
+      case req @ POST -> Root / "auth" => auth(req)
+      case req @ POST -> Root / "reg"  => register(req)
+      case GET -> Root / "logout"      => Ok().map(_.removeCookie("sid"))
+    } <+> authMiddle(AuthedRoutes.of[User, F] {
+      case GET -> Root / "currentuser" as user => Ok(user)
+    })
 
-  private def authRoute(req: Request[F]): F[Response[F]] = {
+  private def auth(req: Request[F]): F[Response[F]] = {
     for {
       auth <- req.as[AuthRequest]
-      authRes <- service.authentication(auth)
+      authRes <- userService.authentication(auth)
       res <- authRes match {
         case Left(msg) => Ok(FormResponse.error(msg))
         case Right(userId) =>
@@ -36,13 +53,13 @@ class ApiRouter[F[_]: Async](service: Service[F]) extends Http4sDsl[F] {
     } yield res
   }
 
-  private def regRoute(req: Request[F]): F[Response[F]] = {
+  private def register(req: Request[F]): F[Response[F]] = {
     for {
       reg <- req.as[RegRequest]
-      regRes <- service.registration(reg)
+      regRes <- userService.registration(reg)
       res <- regRes match {
         case Left(msg) => Ok(FormResponse.error(msg))
-        case Right(_) => Ok(FormResponse.success)
+        case Right(_)  => Ok(FormResponse.success)
       }
     } yield res
   }

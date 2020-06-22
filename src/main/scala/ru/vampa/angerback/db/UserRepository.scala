@@ -1,6 +1,7 @@
 package ru.vampa.angerback.db
 
 import cats.effect.{Async, ContextShift, IO}
+import org.bson.types.ObjectId
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.{MongoCollection, MongoDatabase}
 import ru.vampa.angerback.db.models.UserEntity
@@ -20,5 +21,10 @@ class UserRepository[F[_] : Async](db: MongoDatabase) {
   def createUser(user: UserEntity): F[String] = Async[F].liftIO {
     val query = users.insertOne(user)
     IO.fromFuture(IO(query.toFuture)).map(_.getInsertedId.asObjectId.getValue.toString)
+  }
+
+  def findUserById(id: String): F[Option[UserEntity]] = Async[F].liftIO {
+    val query = users.find(equal("_id", new ObjectId(id))).first()
+    IO.fromFuture(IO(query.headOption()))
   }
 }

@@ -22,7 +22,7 @@ object WebServer extends IOApp {
   val db: MongoDatabase = mongoClient.getDatabase("angermess").withCodecRegistry(codecRegistry)
 
   val userRepo = new UserRepository[IO](db)
-  val service: Service[IO] = new Service[IO](userRepo)
+  val service: UserService[IO] = new UserService[IO](userRepo)
 
   val httpApp: HttpApp[IO] = Router(
     "/api" -> new ApiRouter[IO](service).routes
