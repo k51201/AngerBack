@@ -1,13 +1,13 @@
-package ru.vampa.angerback
+package ru.vampa.angerback.services
 
-import cats.effect.{Async, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import com.github.t3hnar.bcrypt._
 import ru.vampa.angerback.db.UserRepository
 import ru.vampa.angerback.db.models.UserEntity
 import ru.vampa.angerback.dto.{AuthRequest, RegRequest, User}
 
-class UserService[F[_] : Async](repo: UserRepository[F]) {
+class UserService[F[_] : Sync](repo: UserRepository[F]) {
   type UserId = String
 
   def authentication(auth: AuthRequest): F[Either[String, UserId]] = {
@@ -15,8 +15,10 @@ class UserService[F[_] : Async](repo: UserRepository[F]) {
       Sync[F].pure(Left("Все поля должны быть заполнены!"))
     } else {
       repo.findUser(auth.email).map {
-        case Some(user) if auth.password.isBcrypted(user.password) => Right(user._id.toString)
+        case Some(user) if auth.password.isBcrypted(user.password) => Right(user.id.toString)
         case _ => Left("Логин и пароль неверны!")
+      }.recover {
+        case e => Either.left[String, UserId](e.getMessage)
       }
     }
   }
@@ -41,7 +43,11 @@ class UserService[F[_] : Async](repo: UserRepository[F]) {
   }
 
   def getUser(id: String): F[Either[String, User]] = {
-    repo.findUserById(id).map(_.toRight("User not found").map(User.apply))
+    repo.findUserById(id)
+      .map(_.toRight("User not found").map(User.apply))
+      .recover {
+        case e => Either.left[String, User](e.getMessage)
+      }
   }
 
   def searchUsers(query: Option[String]): F[Either[String, Seq[User]]] = {

@@ -9,5 +9,5 @@ case class User(
 )
 
 object User {
-  def apply(e: UserEntity): User = User(e._id.toString, e.username, e.email)
+  def apply(e: UserEntity): User = User(e.id.toString, e.username, e.email)
 }

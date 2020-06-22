@@ -9,8 +9,9 @@ import ru.vampa.angerback.db.models.UserEntity
 import scala.concurrent.ExecutionContext
 
 class UserRepository[F[_] : Async](db: MongoDatabase) {
-  implicit private val csIO: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+  type UserId = String
 
+  implicit private val csIO: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   private val users: MongoCollection[UserEntity] = db.getCollection("users")
 
   def findUser(email: String): F[Option[UserEntity]] = Async[F].liftIO {
@@ -18,12 +19,12 @@ class UserRepository[F[_] : Async](db: MongoDatabase) {
     IO.fromFuture(IO(query.headOption()))
   }
 
-  def createUser(user: UserEntity): F[String] = Async[F].liftIO {
+  def createUser(user: UserEntity): F[UserId] = Async[F].liftIO {
     val query = users.insertOne(user)
     IO.fromFuture(IO(query.toFuture)).map(_.getInsertedId.asObjectId.getValue.toString)
   }
 
-  def findUserById(id: String): F[Option[UserEntity]] = Async[F].liftIO {
+  def findUserById(id: UserId): F[Option[UserEntity]] = Async[F].liftIO {
     val query = users.find(equal("_id", new ObjectId(id))).first()
     IO.fromFuture(IO(query.headOption()))
   }

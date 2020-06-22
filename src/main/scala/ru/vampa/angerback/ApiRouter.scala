@@ -13,8 +13,12 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.server.AuthMiddleware
 import org.reactormonk.{CryptoBits, PrivateKey}
 import ru.vampa.angerback.dto.{AuthRequest, FormResponse, RegRequest, User}
+import ru.vampa.angerback.services.{DialogService, UserService}
 
-class ApiRouter[F[_]: Async](userService: UserService[F]) extends Http4sDsl[F] {
+class ApiRouter[F[_]: Async](
+    userService: UserService[F],
+    dialogService: DialogService[F]
+) extends Http4sDsl[F] {
   val key: PrivateKey = PrivateKey(scala.io.Codec.toUTF8("rgghnfghndzs"))
   val crypto: CryptoBits = CryptoBits(key)
   val clock: Clock = java.time.Clock.systemUTC
@@ -28,7 +32,9 @@ class ApiRouter[F[_]: Async](userService: UserService[F]) extends Http4sDsl[F] {
       } yield message
       message.flatTraverse(userService.getUser)
     }
-  val onFailure: AuthedRoutes[String, F] = Kleisli(req => OptionT.liftF(Forbidden(req.context)))
+  val onFailure: AuthedRoutes[String, F] = Kleisli { req =>
+    OptionT.liftF(Forbidden(req.context))
+  }
   val authMiddle: AuthMiddleware[F, User] = AuthMiddleware(authUser, onFailure)
 
   val routes: HttpRoutes[F] =
@@ -39,12 +45,21 @@ class ApiRouter[F[_]: Async](userService: UserService[F]) extends Http4sDsl[F] {
       case GET -> Root / "users" :? search(s) => searchUsers(s)
     } <+> authMiddle(AuthedRoutes.of[User, F] {
       case GET -> Root / "currentuser" as user => Ok(user)
+      case POST -> Root / "dialogs" :? userId(withId) as user =>
+        createDialog(user, withId)
     })
+
+  private def createDialog(user: User, withId: String): F[Response[F]] = {
+    dialogService.createDialog(user.id, withId).flatMap {
+      case Left(err) => InternalServerError(err)
+      case Right(id) => Ok(id)
+    }
+  }
 
   private def searchUsers(query: Option[String]): F[Response[F]] = {
     userService.searchUsers(query).flatMap {
-      case Right(users) => Ok(users)
       case Left(err)    => InternalServerError(err)
+      case Right(users) => Ok(users)
     }
   }
 
@@ -73,4 +88,5 @@ class ApiRouter[F[_]: Async](userService: UserService[F]) extends Http4sDsl[F] {
   }
 
   object search extends OptionalQueryParamDecoderMatcher[String]("search")
+  object userId extends QueryParamDecoderMatcher[String]("userId")
 }
