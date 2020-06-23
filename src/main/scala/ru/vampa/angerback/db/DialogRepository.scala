@@ -59,6 +59,15 @@ class DialogRepository[F[_]: Async](db: MongoDatabase) {
     }
   }
 
+  def findById(id: String): F[Option[DialogEntity]] = {
+    val oid = new ObjectId(id)
+    val aggregationBson = aggregationPipeline(equal("_id", oid))
+    Async[F].liftIO {
+      val query = dialogs.aggregate(aggregationBson)
+      IO.fromFuture(IO(query.headOption))
+    }
+  }
+
   private def aggregationPipeline(filterBson: Bson) = {
     Seq(
       filter(filterBson),
