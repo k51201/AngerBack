@@ -10,7 +10,7 @@ import org.http4s.syntax.kleisli._
 import org.mongodb.scala.bson.codecs.Macros
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 import ru.vampa.angerback.db.{DialogRepository, UserRepository}
-import ru.vampa.angerback.db.models.{DialogEntity, UserEntity}
+import ru.vampa.angerback.db.models.{DialogEntity, IdEntity, UserEntity}
 import ru.vampa.angerback.services.{DialogService, UserService}
 
 import scala.concurrent.ExecutionContext.global
@@ -39,6 +39,7 @@ object WebServer extends IOApp {
     val codecRegistry: CodecRegistry = fromRegistries(
       fromProviders(Macros.createCodecProvider[UserEntity]()),
       fromProviders(Macros.createCodecProvider[DialogEntity]()),
+      fromProviders(Macros.createCodecProvider[IdEntity]()),
       MongoClient.DEFAULT_CODEC_REGISTRY
     )
     val mongoClient: MongoClient = MongoClient("mongodb://localhost:27017")

@@ -47,7 +47,15 @@ class ApiRouter[F[_]: Async](
       case GET -> Root / "currentuser" as user => Ok(user)
       case POST -> Root / "dialogs" :? userId(withId) as user =>
         createDialog(user, withId)
+      case GET -> Root / "dialogs" as user => userDialogs(user)
     })
+
+  private def userDialogs(user: User): F[Response[F]] = {
+    dialogService.userDialogs(user.id).flatMap {
+      case Left(err) => InternalServerError(err)
+      case Right(ds) => Ok(ds)
+    }
+  }
 
   private def createDialog(user: User, withId: String): F[Response[F]] = {
     dialogService.createDialog(user.id, withId).flatMap {

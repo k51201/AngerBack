@@ -3,6 +3,7 @@ package ru.vampa.angerback.services
 import cats.effect.Sync
 import cats.implicits._
 import ru.vampa.angerback.db.DialogRepository
+import ru.vampa.angerback.dto.Dialog
 
 class DialogService[F[_]: Sync](dialogRepo: DialogRepository[F]) {
   type DialogId = String
@@ -14,5 +15,8 @@ class DialogService[F[_]: Sync](dialogRepo: DialogRepository[F]) {
       .recover {
         case e => Either.left[String, DialogId](e.getMessage)
       }
+  }
+  def userDialogs(id: String): F[Either[String, Seq[Dialog]]] = {
+    dialogRepo.findForUser(id).map(_.map(Dialog.from(id)).asRight[String])
   }
 }

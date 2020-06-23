@@ -1,12 +1,15 @@
 package ru.vampa.angerback.db
 
 import cats.effect.{Async, ContextShift, IO}
-import org.mongodb.scala.bson.ObjectId
+import org.mongodb.scala.bson.conversions.Bson
+import org.mongodb.scala.bson.{BsonArray, ObjectId}
+import org.mongodb.scala.model.Aggregates._
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.FindOneAndUpdateOptions
+import org.mongodb.scala.model.Projections._
 import org.mongodb.scala.model.Updates._
-import org.mongodb.scala.{MongoCollection, MongoDatabase}
-import ru.vampa.angerback.db.models.DialogEntity
+import org.mongodb.scala.{Document, MongoCollection, MongoDatabase}
+import ru.vampa.angerback.db.models.{DialogEntity, IdEntity, UserEntity}
 
 import scala.concurrent.ExecutionContext
 
@@ -34,11 +37,44 @@ class DialogRepository[F[_]: Async](db: MongoDatabase) {
       setOnInsert("fromUser", new ObjectId(fromUser)),
       setOnInsert("toUser", new ObjectId(toUser))
     )
-    val options = new FindOneAndUpdateOptions().upsert(true)
+    val options = new FindOneAndUpdateOptions()
+      .upsert(true)
+      .projection(fields(include("_id")))
 
     Async[F].liftIO {
-      val query = dialogs.findOneAndUpdate(filterBson, updateBson, options)
+      val query = dialogs
+        .withDocumentClass[IdEntity]()
+        .findOneAndUpdate(filterBson, updateBson, options)
       IO.fromFuture(IO(query.toFuture)).map(_.id.toString)
     }
+  }
+
+  def findForUser(id: String): F[Seq[DialogEntity]] = {
+    val oid = new ObjectId(id)
+    val filterBson = or(equal("fromUser", oid), equal("fromUser", oid))
+    val aggregationBson = aggregationPipeline(filterBson)
+    Async[F].liftIO {
+      val query = dialogs.aggregate(aggregationBson)
+      IO.fromFuture(IO(query.toFuture))
+    }
+  }
+
+  private def aggregationPipeline(filterBson: Bson) = {
+    Seq(
+      filter(filterBson),
+      lookup("users", "fromUser", "_id", "fromUser_t"),
+      lookup("users", "toUser", "_id", "toUser_t"),
+      project(
+        fields(
+          computed(
+            "fromUser",
+            Document("$arrayElemAt" -> BsonArray("$fromUser_t", 0))
+              .toBsonDocument(classOf[UserEntity], db.codecRegistry)),
+          computed(
+            "toUser",
+            Document("$arrayElemAt" -> BsonArray("$toUser_t", 0))
+              .toBsonDocument(classOf[UserEntity], db.codecRegistry))
+        ))
+    )
   }
 }
