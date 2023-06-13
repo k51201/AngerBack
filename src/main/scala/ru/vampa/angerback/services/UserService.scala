@@ -15,7 +15,7 @@ class UserService[F[_] : Sync](repo: UserRepository[F]) {
       Sync[F].pure(Left("Все поля должны быть заполнены!"))
     } else {
       repo.findOne(auth.email).map {
-        case Some(user) if auth.password.isBcrypted(user.password) => Right(user.id.toString)
+        case Some(user) if auth.password.isBcryptedBounded(user.password) => Right(user.id.toString)
         case _ => Left("Логин и пароль неверны!")
       }.recover {
         case e => Either.left[String, UserId](e.getMessage)
@@ -32,7 +32,7 @@ class UserService[F[_] : Sync](repo: UserRepository[F]) {
       repo.findOne(reg.email).flatMap {
         case Some(_) => Sync[F].pure(Left("Имя занято!"))
         case None =>
-          val hash = reg.password.bcrypt(8)
+          val hash = reg.password.bcryptBounded(8)
           repo.create(UserEntity(reg.username, reg.email, hash))
             .map(Either.right[String, UserId])
             .recover {

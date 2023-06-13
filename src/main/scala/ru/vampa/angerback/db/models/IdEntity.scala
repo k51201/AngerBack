@@ -1,6 +1,6 @@
 package ru.vampa.angerback.db.models
 
-import org.mongodb.scala.bson.ObjectId
-import org.mongodb.scala.bson.annotations.BsonProperty
+import org.bson.codecs.pojo.annotations.BsonId
+import org.bson.types.ObjectId
 
-case class IdEntity(@BsonProperty("_id") id: ObjectId)
+case class IdEntity(@BsonId id: ObjectId)
