@@ -1,25 +1,23 @@
 package ru.vampa.angerback.db
 
 import cats.effect.Async
-import com.mongodb.client.model.Aggregates._
-import com.mongodb.client.model.Filters.{eq => equal, _}
-import com.mongodb.client.model.FindOneAndUpdateOptions
-import com.mongodb.client.model.Projections._
-import com.mongodb.client.model.Updates._
-import com.mongodb.client.{MongoCollection, MongoDatabase}
 import org.mongodb.scala.bson.collection.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.bson.{BsonArray, ObjectId}
+import org.mongodb.scala.model.Aggregates._
+import org.mongodb.scala.model.Filters._
+import org.mongodb.scala.model.FindOneAndUpdateOptions
+import org.mongodb.scala.model.Projections._
+import org.mongodb.scala.model.Updates._
+import org.mongodb.scala.{MongoCollection, MongoDatabase}
 import ru.vampa.angerback.db.models.{DialogEntity, IdEntity, UserEntity}
-
-import scala.jdk.CollectionConverters._
 
 class DialogRepository[F[_] : Async](db: MongoDatabase) {
   type DialogId = String
   type UserId = String
 
   private val dialogs: MongoCollection[DialogEntity] =
-    db.getCollection("dialogs", DialogEntity.getClass)
+    db.getCollection[DialogEntity]("dialogs")
 
   def upsert(fromUser: UserId, toUser: UserId): F[DialogId] = {
     val filterBson = or(
@@ -40,11 +38,14 @@ class DialogRepository[F[_] : Async](db: MongoDatabase) {
       .upsert(true)
       .projection(fields(include("_id")))
 
-    val dialogsToId = dialogs.withDocumentClass[IdEntity](IdEntity.getClass[IdEntity])
+    val dialogsToId = dialogs.withDocumentClass[IdEntity]()
 
-    Async[F].pure {
-      Option(dialogsToId.findOneAndUpdate(filterBson, updateBson, options))
-        .map(_.id.toString)
+    Async[F].fromFuture {
+      Async[F].pure {
+        dialogsToId.findOneAndUpdate(filterBson, updateBson, options)
+          .map(_.id.toString)
+          .head()
+      }
     }
   }
 
@@ -52,20 +53,25 @@ class DialogRepository[F[_] : Async](db: MongoDatabase) {
     val oid = new ObjectId(id)
     val filterBson = or(equal("fromUser", oid), equal("fromUser", oid))
 
-    Async[F].pure {
-      dialogs.aggregate(aggregationPipeline(filterBson))
+    Async[F].fromFuture {
+      Async[F].pure {
+        dialogs.aggregate(aggregationPipeline(filterBson)).toFuture()
+      }
     }
   }
 
   def findById(id: String): F[Option[DialogEntity]] = {
     val oid = new ObjectId(id)
     val aggregationBson = aggregationPipeline(equal("_id", oid))
-    Async[F].pure {
-      dialogs.aggregate(aggregationBson).asScala.headOption
+
+    Async[F].fromFuture {
+      Async[F].pure {
+        dialogs.aggregate(aggregationBson).headOption()
+      }
     }
   }
 
-  private def aggregationPipeline(filterBson: Bson): java.util.List[Bson] = {
+  private def aggregationPipeline(filterBson: Bson): Seq[Bson] = {
     Seq(
       pullByFilter(filterBson),
       lookup("users", "fromUser", "_id", "fromUser_t"),
@@ -75,12 +81,12 @@ class DialogRepository[F[_] : Async](db: MongoDatabase) {
           computed(
             "fromUser",
             Document("$arrayElemAt" -> BsonArray("$fromUser_t", 0))
-              .toBsonDocument(classOf[UserEntity], db.getCodecRegistry)),
+              .toBsonDocument(classOf[UserEntity], db.codecRegistry)),
           computed(
             "toUser",
             Document("$arrayElemAt" -> BsonArray("$toUser_t", 0))
-              .toBsonDocument(classOf[UserEntity], db.getCodecRegistry))
+              .toBsonDocument(classOf[UserEntity], db.codecRegistry))
         ))
-    ).asJava
+    )
   }
 }

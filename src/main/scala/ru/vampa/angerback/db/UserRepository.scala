@@ -1,34 +1,43 @@
 package ru.vampa.angerback.db
 
 import cats.effect.Async
-import com.mongodb.client.model.Filters.{eq => equal, _}
-import com.mongodb.client.{MongoCollection, MongoDatabase}
+import org.mongodb.scala.model.Filters._
 import org.bson.types.ObjectId
+import org.mongodb.scala.{MongoCollection, MongoDatabase}
 import ru.vampa.angerback.db.models.UserEntity
 
-class UserRepository[F[_] : Async](db: MongoDatabase) {
-  type UserId = String
+import scala.concurrent.ExecutionContext
 
-  private val users: MongoCollection[UserEntity] = db.getCollection("users", UserEntity.getClass)
+class UserRepository[F[_] : Async](db: MongoDatabase)(implicit ec: ExecutionContext) {
+  private val users: MongoCollection[UserEntity] = db.getCollection("users")
 
-  def findOne(email: String): F[Option[UserEntity]] = Async[F].pure {
-    Option(users.find(equal("email", email)).first())
+  def findOne(email: String): F[Option[UserEntity]] = Async[F].fromFuture {
+    Async[F].pure {
+      users.find(equal("email", email)).headOption()
+    }
   }
 
-  def create(user: UserEntity): F[UserId] = Async[F].pure {
-    Option(users.insertOne(user).getInsertedId)
-      .map(insertedId => insertedId.asObjectId().getValue.toString)
+  def create(user: UserEntity): F[String] = Async[F].fromFuture {
+    Async[F].pure {
+      users.insertOne(user).head().map(_.getInsertedId.asObjectId().getValue.toString)
+    }
   }
 
-  def findById(id: UserId): F[Option[UserEntity]] = Async[F].pure {
-    Option(users.find(equal("_id", new ObjectId(id))).first())
+  def findById(id: String): F[Option[UserEntity]] = Async[F].fromFuture {
+    Async[F].pure {
+      users.find(equal("_id", new ObjectId(id))).headOption()
+    }
   }
 
-  def findAll(): F[Seq[UserEntity]] = Async[F].pure {
-    users.find()
+  def findAll(): F[Seq[UserEntity]] = Async[F].fromFuture {
+    Async[F].pure {
+      users.find().toFuture()
+    }
   }
 
-  def find(q: String): F[Seq[UserEntity]] = Async[F].pure {
-    users.find(regex("username", s"(?i)$q"))
+  def find(q: String): F[Seq[UserEntity]] = Async[F].fromFuture {
+    Async[F].pure {
+      users.find(regex("username", s"(?i)$q")).toFuture()
+    }
   }
 }
